@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Competition {
+  id        String   @id @default(cuid())
+  name      String
+  date      DateTime
+  topPlaces Int      @default(5)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  results   Result[]
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  results   Result[]
+}
+
+model Result {
+  id            String      @id @default(cuid())
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  competitionId String
+  player        Player      @relation(fields: [playerId], references: [id])
+  playerId      String
+  place         Int
+  score         Float
+  createdAt     DateTime    @default(now())
+
+  @@unique([competitionId, playerId])
+}
