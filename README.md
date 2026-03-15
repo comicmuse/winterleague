@@ -20,7 +20,7 @@ A web application to track the results of a ladies golf winter league.
 | ORM         | [Prisma 7](https://www.prisma.io)       |
 | Auth        | [NextAuth.js v5](https://authjs.dev)    |
 | Styling     | [Tailwind CSS v4](https://tailwindcss.com) |
-| Export      | [xlsx](https://sheetjs.com)             |
+| Export      | [ExcelJS](https://github.com/exceljs/exceljs) |
 | Hosting     | [Vercel](https://vercel.com)            |
 
 ---

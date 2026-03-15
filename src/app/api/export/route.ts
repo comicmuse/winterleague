@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { pointsForPlace, buildLeagueTable } from "@/lib/scoring";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { format } from "date-fns";
 
 export async function GET() {
@@ -20,28 +20,37 @@ export async function GET() {
     },
   });
 
-  const workbook = XLSX.utils.book_new();
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Winter League";
+  workbook.created = new Date();
 
-  // Sheet 1: All Results
-  const resultsRows: (string | number)[][] = [
-    ["Competition", "Date", "Player", "Score", "Place", "Points"],
+  // ── Sheet 1: All Results ──────────────────────────────────────
+  const resultsSheet = workbook.addWorksheet("All Results");
+  resultsSheet.columns = [
+    { header: "Competition", key: "competition", width: 30 },
+    { header: "Date",        key: "date",        width: 14 },
+    { header: "Player",      key: "player",      width: 22 },
+    { header: "Score",       key: "score",       width: 10 },
+    { header: "Place",       key: "place",       width: 10 },
+    { header: "Points",      key: "points",      width: 10 },
   ];
+  // Bold header row
+  resultsSheet.getRow(1).font = { bold: true };
+
   for (const comp of competitions) {
     for (const result of comp.results) {
-      resultsRows.push([
-        comp.name,
-        format(new Date(comp.date), "dd/MM/yyyy"),
-        result.player.name,
-        result.score,
-        result.place,
-        pointsForPlace(result.place, comp.topPlaces),
-      ]);
+      resultsSheet.addRow({
+        competition: comp.name,
+        date: format(new Date(comp.date), "dd/MM/yyyy"),
+        player: result.player.name,
+        score: result.score,
+        place: result.place,
+        points: pointsForPlace(result.place, comp.topPlaces),
+      });
     }
   }
-  const resultsSheet = XLSX.utils.aoa_to_sheet(resultsRows);
-  XLSX.utils.book_append_sheet(workbook, resultsSheet, "All Results");
 
-  // Sheet 2: League Table
+  // ── Sheet 2: League Table ─────────────────────────────────────
   const leagueInput = competitions.flatMap((comp) =>
     comp.results.map((r) => ({
       playerId: r.playerId,
@@ -52,49 +61,67 @@ export async function GET() {
   );
   const leagueTable = buildLeagueTable(leagueInput);
 
-  const leagueRows: (string | number)[][] = [
-    ["Position", "Player", "Total Points", "Competitions", "1st", "2nd", "3rd", "4th", "5th"],
+  const leagueSheet = workbook.addWorksheet("League Table");
+  leagueSheet.columns = [
+    { header: "Position",     key: "position",    width: 10 },
+    { header: "Player",       key: "player",      width: 22 },
+    { header: "Total Points", key: "points",      width: 14 },
+    { header: "Competitions", key: "played",      width: 14 },
+    { header: "1st",          key: "p1",          width: 8  },
+    { header: "2nd",          key: "p2",          width: 8  },
+    { header: "3rd",          key: "p3",          width: 8  },
+    { header: "4th",          key: "p4",          width: 8  },
+    { header: "5th",          key: "p5",          width: 8  },
   ];
+  leagueSheet.getRow(1).font = { bold: true };
+
   leagueTable.forEach((entry, i) => {
-    leagueRows.push([
-      i + 1,
-      entry.playerName,
-      entry.totalPoints,
-      entry.competitionsEntered,
-      entry.placements[1] ?? 0,
-      entry.placements[2] ?? 0,
-      entry.placements[3] ?? 0,
-      entry.placements[4] ?? 0,
-      entry.placements[5] ?? 0,
-    ]);
+    leagueSheet.addRow({
+      position: i + 1,
+      player:   entry.playerName,
+      points:   entry.totalPoints,
+      played:   entry.competitionsEntered,
+      p1: entry.placements[1] ?? 0,
+      p2: entry.placements[2] ?? 0,
+      p3: entry.placements[3] ?? 0,
+      p4: entry.placements[4] ?? 0,
+      p5: entry.placements[5] ?? 0,
+    });
   });
-  const leagueSheet = XLSX.utils.aoa_to_sheet(leagueRows);
-  XLSX.utils.book_append_sheet(workbook, leagueSheet, "League Table");
 
-  // Sheet 3: Per competition summary
-  const compSummaryRows: (string | number)[][] = [["Competition", "Date", "Top Places", "Entries"]];
+  // ── Sheet 3: Competitions summary ─────────────────────────────
+  const compSheet = workbook.addWorksheet("Competitions");
+  compSheet.columns = [
+    { header: "Competition", key: "competition", width: 30 },
+    { header: "Date",        key: "date",        width: 14 },
+    { header: "Top Places",  key: "topPlaces",   width: 12 },
+    { header: "Entries",     key: "entries",     width: 10 },
+  ];
+  compSheet.getRow(1).font = { bold: true };
+
   for (const comp of competitions) {
-    compSummaryRows.push([
-      comp.name,
-      format(new Date(comp.date), "dd/MM/yyyy"),
-      comp.topPlaces,
-      comp.results.length,
-    ]);
+    compSheet.addRow({
+      competition: comp.name,
+      date: format(new Date(comp.date), "dd/MM/yyyy"),
+      topPlaces: comp.topPlaces,
+      entries: comp.results.length,
+    });
   }
-  const compSheet = XLSX.utils.aoa_to_sheet(compSummaryRows);
-  XLSX.utils.book_append_sheet(workbook, compSheet, "Competitions");
 
-  // Generate buffer
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  // ── Serialise to buffer ───────────────────────────────────────
+  const buffer = await workbook.xlsx.writeBuffer();
 
-  const seasonYear = competitions.length > 0
-    ? format(new Date(competitions[0].date), "yyyy")
-    : new Date().getFullYear();
+  const seasonYear =
+    competitions.length > 0
+      ? format(new Date(competitions[0].date), "yyyy")
+      : new Date().getFullYear();
 
   return new NextResponse(buffer, {
     headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="winter-league-${seasonYear}.xlsx"`,
     },
   });
 }
+
