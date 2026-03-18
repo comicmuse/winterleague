@@ -4,21 +4,26 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
+import { format } from "date-fns";
 
 interface EntryRow {
+  id: string;
   playerName: string;
   score: string;
+  place?: number;
 }
 
-interface League {
+interface Competition {
   id: string;
-  name: string;
-}
-
-interface Season {
-  id: string;
-  year: number;
-  leagueId: string;
+  name: string | null;
+  date: string;
+  topPlaces: number;
+  results: {
+    id: string;
+    player: { name: string };
+    score: number;
+    place: number;
+  }[];
 }
 
 function ordinal(n: number): string {
@@ -27,57 +32,58 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export default function NewCompetitionPage() {
+export default function EditCompetitionPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
+  const [competition, setCompetition] = useState<Competition | null>(null);
+  const [entries, setEntries] = useState<EntryRow[]>([]);
   const [name, setName] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState("");
   const [topPlaces, setTopPlaces] = useState(5);
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [seasons, setSeasons] = useState<Season[]>([]);
-  const [selectedLeague, setSelectedLeague] = useState("");
-  const [selectedSeason, setSelectedSeason] = useState("");
-  const [entries, setEntries] = useState<EntryRow[]>([
-    { playerName: "", score: "" },
-    { playerName: "", score: "" },
-    { playerName: "", score: "" },
-  ]);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [competitionId, setCompetitionId] = useState("");
 
   useEffect(() => {
-    // Fetch seasons first
-    fetch("/api/seasons")
-      .then((res) => res.json())
-      .then((data) => {
-        setSeasons(data);
-        // Set default season to current year
-        const currentYear = new Date().getFullYear();
-        const currentSeason = data.find((s: Season) => s.year === currentYear);
-        const defaultSeason = currentSeason || data[0];
-        if (defaultSeason) {
-          setSelectedSeason(defaultSeason.id);
-        }
-      })
-      .catch((err) => console.error("Failed to fetch seasons:", err));
-  }, []);
+    async function fetchCompetition() {
+      try {
+        const resolvedParams = await params;
+        setCompetitionId(resolvedParams.id);
 
-  useEffect(() => {
-    // Fetch leagues when season changes
-    if (selectedSeason) {
-      fetch(`/api/leagues?seasonId=${selectedSeason}`)
-        .then((res) => res.json())
-        .then((data) => {
-          setLeagues(data);
-          if (data.length > 0 && !selectedLeague) {
-            setSelectedLeague(data[0].id);
-          }
-        })
-        .catch((err) => console.error("Failed to fetch leagues:", err));
+        const res = await fetch(`/api/competitions/${resolvedParams.id}`);
+        if (!res.ok) throw new Error("Competition not found");
+
+        const comp: Competition = await res.json();
+        setCompetition(comp);
+        setName(comp.name || "");
+        setDate(comp.date.split("T")[0]);
+        setTopPlaces(comp.topPlaces);
+
+        // Convert results to entry format
+        const entryRows = comp.results.map((result) => ({
+          id: result.id,
+          playerName: result.player.name,
+          score: result.score.toString(),
+          place: result.place,
+        }));
+        setEntries(entryRows);
+      } catch (err) {
+        setError("Failed to load competition");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [selectedSeason]);
+
+    fetchCompetition();
+  }, [params]);
 
   function addRow() {
-    setEntries([...entries, { playerName: "", score: "" }]);
+    setEntries([...entries, { id: "", playerName: "", score: "" }]);
   }
 
   function removeRow(index: number) {
@@ -133,14 +139,6 @@ export default function NewCompetitionPage() {
       setError("Please select a date.");
       return;
     }
-    if (!selectedLeague) {
-      setError("Please select a league.");
-      return;
-    }
-    if (!selectedSeason) {
-      setError("Please select a season.");
-      return;
-    }
     if (validEntries.length === 0) {
       setError("Please enter at least one player result.");
       return;
@@ -154,18 +152,16 @@ export default function NewCompetitionPage() {
       return;
     }
 
-    setLoading(true);
+    setSaving(true);
 
     try {
-      const res = await fetch("/api/competitions", {
-        method: "POST",
+      const res = await fetch(`/api/competitions/${competitionId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim() || null,
           date,
           topPlaces,
-          leagueId: selectedLeague,
-          seasonId: selectedSeason,
           entries: validEntries.map((e) => ({
             playerName: e.playerName.trim(),
             score: parseFloat(e.score),
@@ -175,18 +171,41 @@ export default function NewCompetitionPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? "Failed to save competition");
+        throw new Error(data.error ?? "Failed to update competition");
       }
 
-      const comp = await res.json();
-      router.push(`/competitions/${comp.id}`);
+      router.push(`/competitions/${competitionId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
-      setLoading(false);
+      setSaving(false);
     }
   }
 
   const previewPlaces = getPreviewPlaces();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Suspense fallback={<div>Loading...</div>}>
+          <Navbar />
+        </Suspense>
+        <div className="max-w-3xl mx-auto px-4 py-8 text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!competition) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Suspense fallback={<div>Loading...</div>}>
+          <Navbar />
+        </Suspense>
+        <div className="max-w-3xl mx-auto px-4 py-8 text-center text-red-600">
+          Competition not found
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -196,12 +215,18 @@ export default function NewCompetitionPage() {
 
       <main className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <Link href="/competitions" className="text-green-700 hover:underline text-sm">
-            ← Back to competitions
+          <Link
+            href={`/competitions/${competitionId}`}
+            className="text-green-700 hover:underline text-sm"
+          >
+            ← Back to competition
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mt-2">
-            Enter Competition Results
+            Edit Competition Results
           </h1>
+          <p className="text-gray-500 mt-1">
+            Originally held on {format(new Date(competition.date), "d MMMM yyyy")}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -212,44 +237,6 @@ export default function NewCompetitionPage() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  League *
-                </label>
-                <select
-                  required
-                  value={selectedLeague}
-                  onChange={(e) => setSelectedLeague(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white"
-                >
-                  <option value="">Select league</option>
-                  {leagues.map((league) => (
-                    <option key={league.id} value={league.id}>
-                      {league.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Season *
-                </label>
-                <select
-                  required
-                  value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white"
-                >
-                  <option value="">Select season</option>
-                  {seasons.map((season) => (
-                    <option key={season.id} value={season.id}>
-                      {season.year}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Competition Name (optional)
@@ -308,7 +295,7 @@ export default function NewCompetitionPage() {
               Player Results
             </h2>
             <p className="text-sm text-gray-500 mb-4">
-              Enter all players. Places are automatically calculated from scores
+              Edit player scores. Places are automatically calculated from scores
               (lowest score = best place). Players with the same score share a
               place.
             </p>
@@ -327,7 +314,7 @@ export default function NewCompetitionPage() {
                 const place = previewPlaces[idx];
                 return (
                   <div
-                    key={idx}
+                    key={entry.id || idx}
                     className="grid grid-cols-12 gap-2 items-center"
                   >
                     <div className="col-span-1 text-sm text-gray-400 text-center">
@@ -411,17 +398,17 @@ export default function NewCompetitionPage() {
 
           <div className="flex gap-3 justify-end">
             <Link
-              href="/competitions"
+              href={`/competitions/${competitionId}`}
               className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={saving}
               className="px-6 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg font-medium transition-colors"
             >
-              {loading ? "Saving…" : "Save Results"}
+              {saving ? "Saving…" : "Update Results"}
             </button>
           </div>
         </form>

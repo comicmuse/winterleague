@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { format } from "date-fns";
 import { pointsForPlace } from "@/lib/scoring";
+import LeagueFilter from "@/components/LeagueFilter";
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -33,18 +34,38 @@ function PlaceBadge({ place }: { place: number }) {
   );
 }
 
+interface PageProps {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ leagueId?: string }>;
+}
+
 export default async function PlayerProfilePage({
   params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const { leagueId } = await searchParams;
+
+  const where: any = {};
+  if (leagueId) {
+    where.competition = { leagueId };
+  }
 
   const player = await prisma.player.findUnique({
     where: { id },
     include: {
       results: {
-        include: { competition: true },
+        where,
+        include: {
+          competition: {
+            include: {
+              season: true,
+              league: {
+                include: { season: true },
+              },
+            },
+          },
+        },
         orderBy: { competition: { date: "desc" } },
       },
     },
@@ -79,6 +100,9 @@ export default async function PlayerProfilePage({
             ← Back to players
           </Link>
         </div>
+
+        {/* League Filter */}
+        <LeagueFilter />
 
         {/* Profile header */}
         <div className="bg-white rounded-xl shadow p-6 mb-6">
@@ -188,7 +212,11 @@ export default async function PlayerProfilePage({
                             href={`/competitions/${result.competitionId}`}
                             className="text-green-700 hover:text-green-900 hover:underline font-medium"
                           >
-                            {result.competition.name}
+                            {result.competition.name ||
+                              `Competition on ${format(
+                                new Date(result.competition.date),
+                                "d MMM yyyy"
+                              )}`}
                           </Link>
                         </td>
                         <td className="px-6 py-3 text-gray-500 text-sm">

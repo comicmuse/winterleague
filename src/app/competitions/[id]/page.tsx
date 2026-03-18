@@ -63,7 +63,15 @@ export default async function CompetitionDetailPage({
                 </span>
               </div>
             </div>
-            <DeleteCompetitionButton id={competition.id} />
+            <div className="flex gap-3">
+              <Link
+                href={`/competitions/${competition.id}/edit`}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                ✏️ Edit Results
+              </Link>
+              <DeleteCompetitionButton id={competition.id} />
+            </div>
           </div>
         </div>
 

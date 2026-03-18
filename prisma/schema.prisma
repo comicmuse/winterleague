@@ -10,11 +10,35 @@ datasource db {
   provider = "sqlite"
 }
 
+model Season {
+  id           String        @id @default(cuid())
+  year         Int           @unique
+  createdAt    DateTime      @default(now())
+  leagues      League[]
+  competitions Competition[]
+}
+
+model League {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  season       Season        @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  seasonId     String
+  competitions Competition[]
+  createdAt    DateTime      @default(now())
+
+  @@unique([name, seasonId])
+}
+
 model Competition {
   id        String   @id @default(cuid())
-  name      String
+  name      String?
   date      DateTime
   topPlaces Int      @default(5)
+  league    League   @relation(fields: [leagueId], references: [id])
+  leagueId  String
+  season    Season   @relation(fields: [seasonId], references: [id])
+  seasonId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   results   Result[]
