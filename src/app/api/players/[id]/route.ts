@@ -13,7 +13,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const leagueId = searchParams.get("leagueId");
 
-  const where: any = {};
+  const where: { competition?: { leagueId: string } } = {};
   if (leagueId) {
     where.competition = { leagueId };
   }

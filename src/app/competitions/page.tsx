@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
@@ -44,11 +44,7 @@ function CompetitionsContent() {
   const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCompetitions();
-  }, [selectedSeason]);
-
-  async function fetchCompetitions() {
+  const fetchCompetitions = useCallback(async () => {
     try {
       setLoading(true);
       const url = selectedSeason
@@ -97,7 +93,11 @@ function CompetitionsContent() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedSeason]);
+
+  useEffect(() => {
+    fetchCompetitions();
+  }, [fetchCompetitions]);
 
   function toggleLeague(leagueId: string) {
     const newCollapsed = new Set(collapsedLeagues);

@@ -15,11 +15,6 @@ interface League {
   name: string;
 }
 
-interface Season {
-  id: string;
-  year: number;
-}
-
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -57,7 +52,7 @@ function CompetitionForm() {
         })
         .catch((err) => console.error("Failed to fetch leagues:", err));
     }
-  }, [selectedSeason]);
+  }, [selectedSeason, selectedLeague]);
 
   function addRow() {
     setEntries([...entries, { playerName: "", score: "" }]);

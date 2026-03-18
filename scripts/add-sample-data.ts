@@ -91,7 +91,6 @@ async function addSampleData() {
   console.log(`Created ${players.length} players`)
 
   // Create sample competitions
-  const now = new Date()
   const competitions = []
 
   // Seniors League competitions

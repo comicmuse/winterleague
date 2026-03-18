@@ -46,7 +46,7 @@ export default async function PlayerProfilePage({
   const { id } = await params;
   const { leagueId } = await searchParams;
 
-  const where: any = {};
+  const where: { competition?: { leagueId: string } } = {};
   if (leagueId) {
     where.competition = { leagueId };
   }

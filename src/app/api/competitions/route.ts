@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const seasonId = searchParams.get("seasonId");
   const leagueId = searchParams.get("leagueId");
 
-  const where: any = {};
+  const where: { seasonId?: string; leagueId?: string } = {};
   if (seasonId) where.seasonId = seasonId;
   if (leagueId) where.leagueId = leagueId;
 

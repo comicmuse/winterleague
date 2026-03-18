@@ -28,7 +28,7 @@ export default function Navbar() {
         setSeasons(data);
         // Set default season to current year or most recent
         const currentYear = new Date().getFullYear();
-        const currentSeason = data.find((s: any) => s.year === currentYear);
+        const currentSeason = data.find((s: { id: string; year: number }) => s.year === currentYear);
         const defaultSeason = currentSeason || data[0];
 
         const seasonParam = searchParams.get("season");
@@ -39,7 +39,7 @@ export default function Navbar() {
         }
       })
       .catch((err) => console.error("Failed to fetch seasons:", err));
-  }, []);
+  }, [searchParams]);
 
   const handleSeasonChange = (seasonId: string) => {
     setSelectedSeason(seasonId);

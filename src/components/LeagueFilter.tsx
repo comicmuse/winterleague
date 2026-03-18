@@ -26,7 +26,7 @@ export default function LeagueFilter() {
         }
       })
       .catch((err) => console.error("Failed to fetch leagues:", err));
-  }, []);
+  }, [searchParams]);
 
   const handleLeagueChange = (leagueId: string) => {
     setSelectedLeague(leagueId);

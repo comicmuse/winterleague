@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
   }, {} as Record<string, { leagueName: string; competitions: typeof competitions }>);
 
   // ── Create one league table sheet per league ──────────────────
-  for (const [leagueId, { leagueName, competitions: leagueComps }] of Object.entries(
+  for (const [, { leagueName, competitions: leagueComps }] of Object.entries(
     competitionsByLeague
   )) {
     const leagueInput = leagueComps.flatMap((comp) =>
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
     leagueSheet.getRow(1).font = { bold: true };
 
     leagueTable.forEach((entry, i) => {
-      const row: any = {
+      const row: Record<string, string | number> = {
         position: i + 1,
         player:   entry.playerName,
         points:   entry.totalPoints,

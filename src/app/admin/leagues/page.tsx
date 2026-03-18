@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
@@ -40,17 +40,7 @@ function LeaguesContent() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchSeasons();
-  }, []);
-
-  useEffect(() => {
-    if (selectedSeason) {
-      fetchLeagues(selectedSeason);
-    }
-  }, [selectedSeason]);
-
-  async function fetchSeasons() {
+  const fetchSeasons = useCallback(async () => {
     try {
       const res = await fetch("/api/seasons");
       const data = await res.json();
@@ -63,7 +53,17 @@ function LeaguesContent() {
     } catch (err) {
       console.error("Failed to fetch seasons:", err);
     }
-  }
+  }, [preselectedSeasonId]);
+
+  useEffect(() => {
+    fetchSeasons();
+  }, [fetchSeasons]);
+
+  useEffect(() => {
+    if (selectedSeason) {
+      fetchLeagues(selectedSeason);
+    }
+  }, [selectedSeason]);
 
   async function fetchLeagues(seasonId: string) {
     try {
