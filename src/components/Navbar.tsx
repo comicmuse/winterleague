@@ -49,12 +49,29 @@ export default function Navbar() {
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  // Helper function to create URL with season parameter
+  const createLinkWithSeason = (href: string) => {
+    if (!selectedSeason) return href;
+    const url = new URL(href, window.location.origin);
+    url.searchParams.set('season', selectedSeason);
+    return url.pathname + url.search;
+  };
+
+  // Helper function to create export URL with season
+  const createExportUrl = () => {
+    if (!selectedSeason) return '/api/export';
+    return `/api/export?seasonId=${selectedSeason}`;
+  };
+
   return (
     <nav className="bg-green-700 text-white shadow-md">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+          <Link
+            href={createLinkWithSeason("/")}
+            className="flex items-center gap-2 font-bold text-lg"
+          >
             <span>⛳</span>
             <span>Winter League</span>
           </Link>
@@ -79,7 +96,7 @@ export default function Navbar() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                href={createLinkWithSeason(link.href)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   pathname === link.href
                     ? "bg-green-900 text-white"
@@ -92,7 +109,7 @@ export default function Navbar() {
             ))}
 
             <a
-              href="/api/export"
+              href={createExportUrl()}
               className="ml-2 px-3 py-2 rounded-lg text-sm font-medium bg-yellow-500 hover:bg-yellow-400 text-green-900 transition-colors"
             >
               📥 Export
@@ -137,7 +154,7 @@ export default function Navbar() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                href={createLinkWithSeason(link.href)}
                 onClick={() => setMenuOpen(false)}
                 className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   pathname === link.href
@@ -150,11 +167,11 @@ export default function Navbar() {
               </Link>
             ))}
             <a
-              href="/api/export"
+              href={createExportUrl()}
               className="block px-3 py-2 rounded-lg text-sm font-medium bg-yellow-500 hover:bg-yellow-400 text-green-900 transition-colors"
               onClick={() => setMenuOpen(false)}
             >
-              📥 Export Excel
+              📥 Export
             </a>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}

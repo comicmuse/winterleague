@@ -6,15 +6,34 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const players = await prisma.player.findMany({
-    orderBy: { name: "asc" },
-    include: {
-      results: {
-        include: { competition: true },
-        orderBy: { place: "asc" },
+  try {
+    const players = await prisma.player.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        results: {
+          include: {
+            competition: {
+              select: {
+                id: true,
+                name: true,
+                date: true,
+                topPlaces: true,
+                seasonId: true,
+                leagueId: true,
+              },
+            },
+          },
+          orderBy: { competition: { date: "desc" } },
+        },
       },
-    },
-  });
+    });
 
-  return NextResponse.json(players);
+    return NextResponse.json(players);
+  } catch (error) {
+    console.error("Error fetching players:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch players" },
+      { status: 500 }
+    );
+  }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 
@@ -18,7 +18,6 @@ interface League {
 interface Season {
   id: string;
   year: number;
-  leagueId: string;
 }
 
 function ordinal(n: number): string {
@@ -27,15 +26,16 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export default function NewCompetitionPage() {
+function CompetitionForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedSeason = searchParams.get("season") || "";
+
   const [name, setName] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [topPlaces, setTopPlaces] = useState(5);
   const [leagues, setLeagues] = useState<League[]>([]);
-  const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedLeague, setSelectedLeague] = useState("");
-  const [selectedSeason, setSelectedSeason] = useState("");
   const [entries, setEntries] = useState<EntryRow[]>([
     { playerName: "", score: "" },
     { playerName: "", score: "" },
@@ -45,24 +45,7 @@ export default function NewCompetitionPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch seasons first
-    fetch("/api/seasons")
-      .then((res) => res.json())
-      .then((data) => {
-        setSeasons(data);
-        // Set default season to current year
-        const currentYear = new Date().getFullYear();
-        const currentSeason = data.find((s: Season) => s.year === currentYear);
-        const defaultSeason = currentSeason || data[0];
-        if (defaultSeason) {
-          setSelectedSeason(defaultSeason.id);
-        }
-      })
-      .catch((err) => console.error("Failed to fetch seasons:", err));
-  }, []);
-
-  useEffect(() => {
-    // Fetch leagues when season changes
+    // Fetch leagues when season from URL is available
     if (selectedSeason) {
       fetch(`/api/leagues?seasonId=${selectedSeason}`)
         .then((res) => res.json())
@@ -138,7 +121,7 @@ export default function NewCompetitionPage() {
       return;
     }
     if (!selectedSeason) {
-      setError("Please select a season.");
+      setError("Please select a season in the navbar first.");
       return;
     }
     if (validEntries.length === 0) {
@@ -189,20 +172,15 @@ export default function NewCompetitionPage() {
   const previewPlaces = getPreviewPlaces();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Suspense fallback={<div>Loading...</div>}>
-        <Navbar />
-      </Suspense>
-
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Link href="/competitions" className="text-green-700 hover:underline text-sm">
-            ← Back to competitions
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mt-2">
-            Enter Competition Results
-          </h1>
-        </div>
+    <main className="max-w-3xl mx-auto px-4 py-8">
+      <div className="mb-6">
+        <Link href="/competitions" className="text-green-700 hover:underline text-sm">
+          ← Back to competitions
+        </Link>
+        <h1 className="text-3xl font-bold text-gray-900 mt-2">
+          Enter Competition Results
+        </h1>
+      </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Competition details */}
@@ -226,25 +204,6 @@ export default function NewCompetitionPage() {
                   {leagues.map((league) => (
                     <option key={league.id} value={league.id}>
                       {league.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Season *
-                </label>
-                <select
-                  required
-                  value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white"
-                >
-                  <option value="">Select season</option>
-                  {seasons.map((season) => (
-                    <option key={season.id} value={season.id}>
-                      {season.year}
                     </option>
                   ))}
                 </select>
@@ -426,6 +385,18 @@ export default function NewCompetitionPage() {
           </div>
         </form>
       </main>
+    );
+  }
+
+export default function NewCompetitionPage() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Suspense fallback={<div>Loading...</div>}>
+        <Navbar />
+      </Suspense>
+      <Suspense fallback={<div className="max-w-3xl mx-auto px-4 py-8">Loading form...</div>}>
+        <CompetitionForm />
+      </Suspense>
     </div>
   );
 }
